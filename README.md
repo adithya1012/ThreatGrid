@@ -1,7 +1,25 @@
 # ThreatGrid — Zscaler SOC Dashboard
 
 A full-stack **Security Operations Center (SOC)** dashboard for analysing Zscaler web proxy logs.  
-Upload a CSV export, run a 12-rule anomaly detection engine, explore findings through live charts and a log table, run per-row AI / ML analysis, and chat directly with an agentic AI analyst powered by OpenAI and Model Context Protocol (MCP).
+Upload a CSV export, run a 12-rule anomaly detection engine, explore findings through live charts and a log table, run per-row AI / ML analysis, and chat directly with an AI analyst powered by OpenAI and Model Context Protocol (MCP).
+
+---
+
+## Live Demo & Resources
+
+| Resource | Link |
+|---|---|
+| 🌐 **Hosted App (AWS EC2)** | http://44.201.32.61:5173/ |
+| 🐳 **Docker Hub** | https://hub.docker.com/r/adithyasn7/soc_dashboard/tags |
+| 🐙 **GitHub Repository** | https://github.com/adithya1012/ThreatGrid |
+| 🤗 **HuggingFace Inference Model** | [EgilKarlsen/DistilRoBERTa_Thunderbird-Anomaly_Baseline](https://huggingface.co/EgilKarlsen/DistilRoBERTa_Thunderbird-Anomaly_Baseline) |
+
+**Sample credentials for the hosted app:**
+
+| Field | Value |
+|---|---|
+| Username | `test` |
+| Password | `test12` |
 
 ---
 
@@ -10,7 +28,7 @@ Upload a CSV export, run a 12-rule anomaly detection engine, explore findings th
 | Feature | Description |
 |---|---|
 | 📤 **CSV Upload** | Drag-and-drop Zscaler NSS log CSV; rows are parsed and stored in a session-scoped PostgreSQL table |
-| 🎲 **Sample CSV Generator** | Generate a realistic 50–1 000-row synthetic Zscaler log file directly from the UI — no real data required to try the app |
+| 🎲 **Sample CSV Generator** | Generate a realistic 200 row synthetic Zscaler log file directly from the UI — no real data required to try the app |
 | 🔍 **12-Rule Anomaly Engine** | Built-in rule engine classifies each row as anomalous or legitimate with a confidence score (0–100) and human-readable reason |
 | 📊 **Live Dashboard** | KPI cards, Pie chart (Legitimate vs Anomaly split), hourly Bar chart, and 10 pre-computed security insight cards |
 | 📋 **Log Table** | Sortable, searchable, paginated table with inline badge colouring; click any row for an expanded detail panel |
@@ -18,7 +36,7 @@ Upload a CSV export, run a 12-rule anomaly detection engine, explore findings th
 | 🤖 **ML Analysis (per row)** | Remote text-classification inference via a Hugging Face dedicated endpoint; returns ranked threat labels with confidence scores |
 | 💬 **AI Analyst Chat (MCP)** | Slide-in streaming chat panel; an OpenAI agentic loop uses MCP tools to query _your_ session data in real time (schema introspection + safe SELECT execution) |
 | 🔐 **Auth** | Username / password signup and login; all API calls are scoped to the authenticated user via `x-user-id` header |
-| 📖 **Swagger UI** | Interactive API docs at `http://localhost:3001/docs` (Fastify-native via `@fastify/swagger`) |
+| 📖 **Swagger UI** | Interactive API docs at `http://localhost:3001/docs` or `http://44.201.32.61:3001/docs` (Fastify-native via `@fastify/swagger`) |
 
 ---
 
@@ -28,12 +46,68 @@ Upload a CSV export, run a 12-rule anomaly detection engine, explore findings th
 |---|---|
 | **Backend** | Fastify 4 · TypeScript · `pg` (PostgreSQL client) · `fast-csv` · `bcryptjs` · OpenAI SDK |
 | **Frontend** | React 18 · Vite 5 · TypeScript · Tailwind CSS v4 · Recharts · `react-markdown` + `remark-gfm` |
-| **AI — Agentic Chat** | OpenAI `gpt-4o` (streaming) · Model Context Protocol (MCP) SDK · SSE transport |
+| **AI — Chat** | OpenAI `gpt-4o` (streaming) · Model Context Protocol (MCP) SDK · SSE transport |
 | **AI — Per-row** | OpenAI `gpt-4o` / `gpt-4o-mini` (selectable in-UI) |
 | **ML — Per-row** | Hugging Face Inference Endpoint (text-classification; configurable via `HF_ENDPOINT_URL`) |
 | **MCP Server** | Standalone Fastify service · `@modelcontextprotocol/sdk` · SSE transport · two tools |
 | **Database** | PostgreSQL 15 |
 | **Infra** | Docker Compose · multi-stage Docker builds · nginx (frontend reverse-proxy) |
+
+---
+
+## AI / LLM Usage
+
+> **Project requirement:** *"If you are using AI/LLMs, please document clearly how and where you are using AI to perform a particular task."*
+
+This project uses AI in three distinct ways:
+
+### 1. ML Anomaly Prediction — HuggingFace Inference Endpoint
+
+**Where:** `backend/src/routes/mlAnalysis.ts` → `POST /api/ml/analyze-log`  
+**Model:** [`EgilKarlsen/DistilRoBERTa_Thunderbird-Anomaly_Baseline`](https://huggingface.co/EgilKarlsen/DistilRoBERTa_Thunderbird-Anomaly_Baseline)  
+**Hosted on:** HuggingFace Dedicated Inference Endpoint  
+
+> **⚠️ Demo / Showcase Integration**  
+> This feature demonstrates _how_ a machine-learning model can be wired into a SOC log-analysis pipeline. The model used here (`DistilRoBERTa_Thunderbird-Anomaly_Baseline`) is a **general-purpose text-classification model** — it was not trained on Zscaler proxy logs. For a production deployment, an organisation would need to **train or fine-tune a model in-house** on their own labelled log data (e.g. using Zscaler NSS exports tagged by SOC analysts) to achieve meaningful accuracy.
+
+Each Zscaler log row is serialised into a natural-language sentence and sent to the DistilRoBERTa text-classification model deployed on a HuggingFace Dedicated Inference Endpoint.  
+The model returns ranked labels (e.g. `ANOMALY` / `BENIGN`) with confidence scores. The backend normalises the response and returns `{ isAnomaly, confidence, label, allLabels }` to the frontend, where the result is displayed inline in the expanded SOC table row.
+
+```
+Log row  →  natural-language sentence  →  HuggingFace endpoint  →  label + confidence score
+```
+
+### 2. Per-row AI Analysis — OpenAI GPT
+
+**Where:** `backend/src/routes/aiAnalysis.ts` → `POST /api/ai/analyze-log`  
+**Model:** `gpt-4o-mini` (default) · `gpt-4o` · `gpt-3.5-turbo` · `gpt-4-turbo` (user-selectable)  
+
+When a user clicks **✨ Analyze** on any log row, the full row data is structured into a security-analyst prompt and sent to the OpenAI Chat Completions API.  
+The model is instructed to act as a senior SOC analyst and return a concise 2-sentence response: the first sentence summarises the threat/risk, the second states the recommended action.  
+The response is streamed back and displayed inline in the expanded log row.
+
+```
+Log row  →  structured SOC analyst prompt  →  OpenAI  →  2-sentence threat analysis
+```
+
+### 3. AI Chat — OpenAI + Model Context Protocol (MCP)
+
+**Where:** `backend/src/mcp/orchestrator.ts` + `backend/src/routes/chat.ts` → `POST /api/chat/:sessionId`  
+**Model:** `gpt-4o` (streaming agentic loop)  
+**Tools:** MCP server exposes `get_db_context` and `run_read_query`  
+
+The slide-in AI Analyst chat panel lets users ask free-form questions about their uploaded session data (e.g. *"Which users triggered the most anomalies?"*).  
+An OpenAI tool-calling loop runs server-side: the model autonomously decides whether to call `get_db_context` (schema introspection) or `run_read_query` (safe SELECT-only SQL) before composing a final markdown answer.  
+Results are streamed to the browser as Server-Sent Events (`tool_call`, `text`, `done`, `error`).
+
+```
+User message  →  OpenAI agentic loop  →  MCP tool calls → PostgreSQL  →  streaming markdown answer
+```
+
+### 4. Code Written with AI Assistance
+
+This project's codebase was developed with the assistance of **Claude Sonnet 4.6** (VSCode Copilot).  
+AI assistance was used throughout: scaffolding route handlers, writing anomaly-detection rules, building the MCP orchestrator loop, authoring React components, and composing this documentation.
 
 ---
 
@@ -44,17 +118,17 @@ flowchart TD
     Browser(["🌐 Browser\n(React + Vite)"])
 
     subgraph Docker["Docker Network — threatgrid_net"]
-        FE["Frontend\nnginx :5173"]
-        BE["Backend\nFastify :3001"]
-        MCP["MCP Server\nFastify :3002"]
-        DB[("PostgreSQL 15\n:5432")]
+        FE["Frontend :5173"]
+        BE["Backend \n Fastify :3001"]
+        MCP["MCP Server \n Fastify :3002"]
+        DB[("PostgreSQL \n:5432")]
     end
 
     OpenAI["☁️ OpenAI API\ngpt-4o / gpt-4o-mini"]
     HF["☁️ Hugging Face\nInference Endpoint\n(text-classification)"]
 
     Browser -->|"HTTP / SSE"| FE
-    FE -->|"nginx proxy /api/*"| BE
+    FE -->|"proxy /api/*"| BE
     BE -->|"SQL via pg"| DB
     BE -->|"SSE transport\nMCP tool calls"| MCP
     MCP -->|"SQL via pg"| DB
@@ -62,31 +136,18 @@ flowchart TD
     BE -->|"fetch + Bearer token"| HF
 ```
 
-**Request flows at a glance:**
-
-| Action | Path |
-|---|---|
-| Upload CSV | Browser → nginx → Backend → PostgreSQL |
-| Dashboard data | Browser → nginx → Backend → PostgreSQL |
-| AI chat message | Browser → nginx → Backend → OpenAI (stream) ↔ MCP Server → PostgreSQL |
-| Per-row AI analysis | Browser → nginx → Backend → OpenAI |
-| Per-row ML analysis | Browser → nginx → Backend → Hugging Face Endpoint |
-
----
-
 ## Prerequisites
 
 | Requirement | Notes |
 |---|---|
-| Docker + Docker Compose 24+ | Required for the fully containerised setup |
+| Docker + Docker Compose | Required for the fully containerised setup |
 | Node.js 18 LTS+ | Local dev only |
 | npm 9+ | Local dev only |
 | OpenAI API key | Required for AI chat & per-row AI analysis |
-| Hugging Face API token | Optional — only required for per-row ML analysis |
 
 ---
 
-## Running Locally (Docker — recommended)
+## Running Locally (Docker)
 
 ### 1. Clone
 
@@ -108,11 +169,6 @@ Add your keys:
 # Required — AI Analyst chat + per-row AI analysis
 OPENAI_API_KEY=sk-...
 
-# Optional — per-row ML analysis via Hugging Face
-HF_API_TOKEN=hf_...
-
-# Optional — override the default HuggingFace dedicated endpoint URL
-# HF_ENDPOINT_URL=https://your-endpoint.huggingface.cloud
 ```
 
 > **Without `OPENAI_API_KEY`** the app still starts. CSV upload, dashboards, and SOC rules all work. Chat and AI analysis return a clear error message.
@@ -123,20 +179,13 @@ HF_API_TOKEN=hf_...
 docker-compose up --build
 ```
 
-| Service | URL |
-|---|---|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:3001 |
-| Swagger UI | http://localhost:3001/docs |
-| MCP Server health | http://localhost:3002/health |
+| Service | Local URL | Hosted URL |
+|---|---|---|
+| Frontend | http://localhost:5173 | http://44.201.32.61:5173 |
+| Backend API | http://localhost:3001 | http://44.201.32.61:3001 |
+| Swagger UI | http://localhost:3001/docs | http://44.201.32.61:3001/docs |
+| MCP Server health | http://localhost:3002/health | — |
 
-A successful backend startup prints:
-
-```
-[server] Schema migration applied.
-[server] Listening on http://0.0.0.0:3001
-[mcp] Connected — available tools: get_db_context, run_read_query
-```
 
 ### 4. Stop
 
@@ -145,35 +194,12 @@ docker-compose down          # stop containers, keep DB volume
 docker-compose down -v       # stop and delete DB volume (full reset)
 ```
 
----
-
-## Running Without Docker (local dev)
-
-Requires a running PostgreSQL 15 instance. Set `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` (or `DATABASE_URL`) in your environment.
-
-```bash
-# Terminal 1 — MCP Server
-cd mcp-server && npm install
-MCP_SERVER_PORT=3002 DATABASE_URL=postgresql://user:pass@localhost:5432/db npm run dev
-
-# Terminal 2 — Backend
-cd backend && npm install
-npm run migrate    # idempotent — creates all tables
-npm run dev        # Fastify on http://localhost:3001
-
-# Terminal 3 — Frontend
-cd frontend && npm install
-VITE_API_BASE_URL=http://localhost:3001 npm run dev
-# Opens on http://localhost:5173
-```
-
----
-
 ## Swagger / API Docs
 
-```
-http://localhost:3001/docs
-```
+| Environment | URL |
+|---|---|
+| Local | http://localhost:3001/docs |
+| Hosted (AWS EC2) | http://44.201.32.61:3001/docs |
 
 Powered by `@fastify/swagger` + `@fastify/swagger-ui`. All authenticated endpoints expose the `x-user-id` API-key scheme in the Authorize dialog — paste the `id` value returned by `/api/auth/login`.
 
@@ -354,44 +380,6 @@ The MCP Server exposes two tools to the OpenAI agentic loop.
 | `run_read_query` | Validates SELECT-only queries, auto-injects `WHERE session_id = $N`, enforces a 200-row LIMIT and 5-second timeout, then executes |
 
 ---
-
-## Sample CSV Format
-
-Columns must use these **exact headers** (case-sensitive):
-
-```csv
-datetime,user,ClientIP,url,action,urlcategory,threatname,threatseverity,department,transactionsize,requestmethod,status,urlclass,dlpengine,useragent,location,appname,appclass
-2024-05-06 09:12:34,john.doe@company.com,10.0.0.42,https://example.com,Allowed,Business and Economy,None,None,Engineering,12340,GET,200,Business Usage,,Mozilla/5.0,HQ,General Browsing,Web Browsing
-2024-05-06 09:13:01,jane.smith@company.com,10.0.0.77,https://malware-site.ru,Blocked,Malware Sites,Trojan.GenericKD,Critical,Finance,4096,GET,403,Security Risk,,curl/7.68.0,HQ,Malware,Malicious
-```
-
-| CSV Header | Description |
-|---|---|
-| `datetime` | Log timestamp — any format parseable by `new Date()` |
-| `user` | User principal name / email |
-| `ClientIP` | Source IP address |
-| `url` | Full destination URL |
-| `action` | Gateway action: `Allowed`, `Blocked`, `Unscannable`, … |
-| `urlcategory` | Zscaler URL category |
-| `threatname` | Detected threat name (or `None`) |
-| `threatseverity` | `Critical`, `High`, `Medium`, `Low`, or empty |
-| `department` | User's department (URL-encoded values decoded automatically) |
-| `transactionsize` | Total bytes transferred (integer) |
-| `requestmethod` | HTTP method: `GET`, `POST`, `CONNECT`, … |
-| `status` | HTTP response status code |
-| `urlclass` | Zscaler URL class |
-| `dlpengine` | DLP engine that triggered (or empty) |
-| `useragent` | Full User-Agent string |
-| `location` | Zscaler location / office name |
-| `appname` | Application name |
-| `appclass` | Application class |
-
-> Rows with missing or malformed fields are accepted — defaults (`""` / `0` / `null`) are applied so the pipeline never fails on a single bad row.
-
-> **Don't have a real Zscaler export?** Use the **Generate Sample CSV** button in the UI to download a synthetic log file and upload it immediately.
-
----
-
 ## Project Structure
 
 ```
