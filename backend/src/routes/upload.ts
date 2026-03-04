@@ -10,6 +10,12 @@ export async function uploadRoutes(app: FastifyInstance): Promise<void> {
    * Accept a multipart CSV file and run the full parse + anomaly pipeline.
    */
   app.post("/api/upload", {
+    // attachValidation: true — prevents Fastify from returning a 400 when the
+    // JSON body validator runs against a multipart request (request.body is
+    // undefined for multipart). The handler always reads the file via
+    // request.file() from @fastify/multipart, so the JSON validation result
+    // is irrelevant and can be safely ignored.
+    attachValidation: true,
     schema: {
       tags: ["upload"],
       summary: "Upload a Zscaler CSV log file for analysis",
@@ -22,9 +28,17 @@ export async function uploadRoutes(app: FastifyInstance): Promise<void> {
           "x-user-id": { type: "string", description: "User ID returned by /api/auth/login" },
         },
       },
-      // Note: body schema intentionally omitted — multipart is parsed by @fastify/multipart,
-      // not the JSON body parser. Adding a body schema here would cause Fastify to reject the
-      // request before the multipart plugin can read it.
+      body: {
+        type: "object",
+        required: ["file"],
+        properties: {
+          file: {
+            type: "string",
+            format: "binary",
+            description: "CSV log file to upload (Zscaler NSS format)",
+          },
+        },
+      },
       response: {
         200: {
           description: "Upload processed successfully",
