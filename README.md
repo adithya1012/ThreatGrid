@@ -9,10 +9,11 @@ Upload a CSV export, run a 12-rule anomaly detection engine, explore findings th
 
 | Resource | Link |
 |---|---|
-| 🌐 **Hosted App (AWS EC2)** | http://44.201.32.61:5173/ |
+| 🌐 **Hosted App (AWS EC2)** | http://34.229.199.226:5173/ |
 | 🐳 **Docker Hub** | https://hub.docker.com/r/adithyasn7/soc_dashboard/tags |
 | 🐙 **GitHub Repository** | https://github.com/adithya1012/ThreatGrid |
 | 🤗 **HuggingFace Inference Model** | [EgilKarlsen/DistilRoBERTa_Thunderbird-Anomaly_Baseline](https://huggingface.co/EgilKarlsen/DistilRoBERTa_Thunderbird-Anomaly_Baseline) |
+| 🎬 **Video Walkthrough** | [Watch on Microsoft Stream](https://purdue0-my.sharepoint.com/:v:/g/personal/seesa01_purdue_edu/IQDJ_00QyCEXRYxtTND6CuI7AewyYcJX7Y-75soeAnf2FHM?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D&e=846b8B) |
 
 **Sample credentials for the hosted app:**
 
@@ -36,7 +37,7 @@ Upload a CSV export, run a 12-rule anomaly detection engine, explore findings th
 | 🤖 **ML Analysis (per row)** | Remote text-classification inference via a Hugging Face dedicated endpoint; returns ranked threat labels with confidence scores |
 | 💬 **AI Analyst Chat (MCP)** | Slide-in streaming chat panel; an OpenAI agentic loop uses MCP tools to query _your_ session data in real time (schema introspection + safe SELECT execution) |
 | 🔐 **Auth** | Username / password signup and login; all API calls are scoped to the authenticated user via `x-user-id` header |
-| 📖 **Swagger UI** | Interactive API docs at `http://localhost:3001/docs` or `http://44.201.32.61:3001/docs` (Fastify-native via `@fastify/swagger`) |
+| 📖 **Swagger UI** | Interactive API docs at `http://localhost:3001/docs` or `http://34.229.199.226:3001/docs` (Fastify-native via `@fastify/swagger`) |
 
 ---
 
@@ -181,9 +182,9 @@ docker-compose up --build
 
 | Service | Local URL | Hosted URL |
 |---|---|---|
-| Frontend | http://localhost:5173 | http://44.201.32.61:5173 |
-| Backend API | http://localhost:3001 | http://44.201.32.61:3001 |
-| Swagger UI | http://localhost:3001/docs | http://44.201.32.61:3001/docs |
+| Frontend | http://localhost:5173 | http://34.229.199.226:5173 |
+| Backend API | http://localhost:3001 | http://34.229.199.226:3001 |
+| Swagger UI | http://localhost:3001/docs | http://34.229.199.226:3001/docs |
 | MCP Server health | http://localhost:3002/health | — |
 
 
@@ -199,7 +200,7 @@ docker-compose down -v       # stop and delete DB volume (full reset)
 | Environment | URL |
 |---|---|
 | Local | http://localhost:3001/docs |
-| Hosted (AWS EC2) | http://44.201.32.61:3001/docs |
+| Hosted (AWS EC2) | http://34.229.199.226:3001/docs |
 
 Powered by `@fastify/swagger` + `@fastify/swagger-ui`. All authenticated endpoints expose the `x-user-id` API-key scheme in the Authorize dialog — paste the `id` value returned by `/api/auth/login`.
 
